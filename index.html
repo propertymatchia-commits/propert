@@ -5,6 +5,26 @@
   <title>Hola mundo</title>
 </head>
 <body>
-  hola mundo
+  <p id="mensaje">hola mundo</p>
+  <p id="estado">Guardando...</p>
+
+  <script>
+    const texto = document.getElementById('mensaje').textContent;
+
+    fetch('/api/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto })
+    })
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('estado').textContent = data.ok
+          ? 'Guardado con id ' + data.guardado.id
+          : 'Error: ' + data.error;
+      })
+      .catch(() => {
+        document.getElementById('estado').textContent = 'No se pudo conectar';
+      });
+  </script>
 </body>
 </html>
