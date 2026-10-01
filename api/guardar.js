@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const TABLA = 'nombre_de_tu_tabla';   // <-- poné el nombre de tu tabla
-const COLUMNA = 'nombre_de_columna';  // <-- poné la columna donde va el texto
+const TABLA = 'prueba';   // <-- poné el nombre de tu tabla
+const COLUMNA = 'texto';  // <-- poné la columna donde va el texto
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
