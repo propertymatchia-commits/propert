@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "type": "http",
+      "url": "https://propertymatchia.app.n8n.cloud/mcp-server/http",
+      "headers": { "Authorization": "Bearer ${N8N_MCP_TOKEN}" }
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=xnzfyklewwmibncryrei",
+      "headers": { "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}" }
+    }
+  }
+}

@@ -1,0 +1,580 @@
+{
+  "name": "PropertymatchIA v2",
+  "nodes": [
+    {
+      "id": "cd83b741-2da7-4a4c-b2de-600cf2f69c40",
+      "name": "Toma los mails que llegan",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {}
+      }
+    },
+    {
+      "id": "c6e961fd-be47-4b48-9a72-1a93140f4757",
+      "name": "Separa la información",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1ee106d4-fdcd-4d24-80a1-0be1aa20cc96",
+              "name": "email_text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "5b1e8fe7-3fa0-4378-9de9-ee6b05050706",
+              "name": "email_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "e3f4d904-38f1-4153-8916-b1fce4fa022c",
+              "name": "thread_id",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "369a28cc-0199-4725-b954-3e3f47864f96",
+              "name": "sender_email",
+              "value": "={{ $json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "d99bd261-b435-4ef5-80c3-37ed4a97118f",
+              "name": "sender_name",
+              "value": "={{ $json.from.value[0].name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ea702fbc-5668-462f-b2d6-a08bf39a9827",
+      "name": "Extrae info a JSON",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "text": "={{ $json.email_text }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "tipo_operacion",
+              "description": "venta o alquiler. Si el cliente dice comprar, es venta"
+            },
+            {
+              "name": "tipo_propiedad",
+              "description": "Tipo de propiedad buscada, por ejemplo apartamento, casa, terreno"
+            },
+            {
+              "name": "ubicacion_buscada",
+              "description": "Barrio, zona o localidad donde busca la propiedad"
+            },
+            {
+              "name": "dormitorios",
+              "type": "number",
+              "description": "Cantidad de dormitorios solicitados"
+            },
+            {
+              "name": "presupuesto_max",
+              "type": "number",
+              "description": "Precio máximo que el cliente está dispuesto a pagar"
+            },
+            {
+              "name": "moneda",
+              "description": "Moneda del precio, por ejemplo UYU o USD"
+            },
+            {
+              "name": "otros_requisitos",
+              "description": "Otros pedidos del cliente (jardín, garage, mascotas, etc.). Vacío si no hay"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4510af10-5d85-40cc-83c6-7fd2f8490857",
+      "name": "Gemini (extractor)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      }
+    },
+    {
+      "id": "b0ebd5ef-6aae-4667-ae5b-0d1ea297004a",
+      "name": "Guardar cliente",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "tableId": "clientes",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "nombre",
+              "fieldValue": "={{ $('Separa la información').first().json.sender_name }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $('Separa la información').first().json.sender_email }}"
+            },
+            {
+              "fieldId": "tipo_operacion",
+              "fieldValue": "={{ $json.output.tipo_operacion }}"
+            },
+            {
+              "fieldId": "tipo_propiedad",
+              "fieldValue": "={{ $json.output.tipo_propiedad }}"
+            },
+            {
+              "fieldId": "ubicacion_buscada",
+              "fieldValue": "={{ $json.output.ubicacion_buscada }}"
+            },
+            {
+              "fieldId": "dormitorios",
+              "fieldValue": "={{ $json.output.dormitorios }}"
+            },
+            {
+              "fieldId": "presupuesto_max",
+              "fieldValue": "={{ $json.output.presupuesto_max }}"
+            },
+            {
+              "fieldId": "otros_requisitos",
+              "fieldValue": "={{ $json.output.otros_requisitos }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "97e14411-b7a8-4a54-aad1-83a091b380a0",
+      "name": "Toma datos Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "propiedades",
+        "returnAll": true
+      }
+    },
+    {
+      "id": "b711e1f4-8628-4c5b-8f2b-17fde88142af",
+      "name": "Junta propiedades",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "propiedades",
+        "options": {}
+      }
+    },
+    {
+      "id": "9255c681-d558-426f-9c0e-7e15f6f99d0d",
+      "name": "IA elige matches",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Sos asistente de una inmobiliaria. El cliente busca:\n{{ JSON.stringify($('Extrae info a JSON').first().json.output) }}\n\nPropiedades disponibles:\n{{ JSON.stringify($json.propiedades) }}\n\nElegí las propiedades que coincidan con lo que busca el cliente. Tené flexibilidad razonable (por ejemplo, hasta 10% sobre el presupuesto o un dormitorio más), pero nunca cambies el tipo de operación. Solo propiedades con disponible = true.\nRespondé SOLO con JSON, sin texto extra: {\"ids\": [1, 2, 3]}\nSi ninguna coincide: {\"ids\": []}"
+      }
+    },
+    {
+      "id": "2942d9f3-2b38-4c48-9523-9e908ca39346",
+      "name": "Gemini (matches)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        200
+      ],
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      }
+    },
+    {
+      "id": "91a5170a-dde3-4313-a18c-7486fb9768fe",
+      "name": "Arma link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.text;\nlet ids = [];\ntry {\n  ids = JSON.parse(raw.replace(/```json|```/g, '').trim()).ids || [];\n} catch (e) {\n  ids = [];\n}\nconst clienteId = $('Guardar cliente').first().json.id;\nconst link = `https://propertymatchia.vercel.app/validar.html?cliente=${clienteId}`\n  + `&props=${ids.join(',')}&resume=${encodeURIComponent($execution.resumeUrl)}`;\nreturn [{ json: { ids, clienteId, link } }];"
+      }
+    },
+    {
+      "id": "3b5c88d4-5ed0-4ee7-bb83-8c1a9a68476c",
+      "name": "¿Hay matches?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "0006154b-94ea-4ef4-8e92-bdc263412bfa",
+              "leftValue": "={{ $json.ids.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6e1242cc-dde3-42e3-9885-80be46cd4366",
+      "name": "Mail al asesor",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1980,
+        -100
+      ],
+      "parameters": {
+        "sendTo": "ASESOR@EMAIL.COM",
+        "subject": "PropertyMatch: propuesta lista para revisar",
+        "emailType": "html",
+        "message": "=<p>Hay una propuesta nueva para validar.</p><p><a href=\"{{ $json.link }}\">Revisar propuesta</a></p>",
+        "options": {}
+      }
+    },
+    {
+      "id": "463cb0ee-3d36-474f-85c7-28a62d36fd2c",
+      "name": "Aviso sin matches",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1980,
+        120
+      ],
+      "parameters": {
+        "sendTo": "ASESOR@EMAIL.COM",
+        "subject": "PropertyMatch: consulta sin propiedades que coincidan",
+        "emailType": "html",
+        "message": "=<p>Llegó una consulta de {{ $('Separa la información').first().json.sender_email }} pero la IA no encontró propiedades que coincidan.</p>",
+        "options": {}
+      }
+    },
+    {
+      "id": "f6574475-82b2-4333-a037-165a2439b320",
+      "name": "Espera validación",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        -100
+      ],
+      "webhookId": "deaa6e99-a00c-4894-bd38-77f30e0e3a7d",
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      }
+    },
+    {
+      "id": "dcbdcfe1-9f0b-4aee-8a6e-926fe3603836",
+      "name": "¿Aprobada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "e46f0103-ab42-4221-85bb-fcd75091c9a8",
+              "leftValue": "={{ $json.body.accion }}",
+              "rightValue": "aprobar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e891d93c-b8d7-461f-be23-7f2af93efeb6",
+      "name": "Arma mail cliente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "const aprobadas = String($json.body.propiedades_aprobadas || '').split(',');\nconst comentario = $json.body.comentario;\nconst props = $('Toma datos Supabase').all().map(i => i.json)\n  .filter(p => aprobadas.includes(String(p.id)));\n\nconst filas = props.map(p => `\n  <div style=\"border:1px solid #ddd;border-radius:6px;padding:16px;margin-bottom:12px\">\n    <h3 style=\"margin:0 0 4px\">${p.titulo}</h3>\n    <p style=\"margin:0 0 8px;color:#555\">${p.ubicacion} · ${p.dormitorios} dorm. · ${p.moneda || 'USD'} ${Number(p.precio).toLocaleString('es-UY')}</p>\n    <p style=\"margin:0 0 8px\">${p.descripcion || ''}</p>\n    ${p.url ? `<a href=\"${p.url}\">Ver publicación</a>` : ''}\n  </div>`).join('');\n\nconst html = `<p>¡Hola! Gracias por tu consulta. Estas son las propiedades que seleccionamos para vos:</p>\n${filas}\n${comentario ? `<p>${comentario}</p>` : ''}\n<p>Cualquier consulta, respondé este mail y coordinamos una visita.</p>`;\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "d9aff63b-bbd1-43bc-8e0f-07b932b2954b",
+      "name": "Responde al cliente",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2860,
+        -200
+      ],
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Separa la información').first().json.email_id }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {}
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Toma los mails que llegan": {
+      "main": [
+        [
+          {
+            "node": "Separa la información",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separa la información": {
+      "main": [
+        [
+          {
+            "node": "Extrae info a JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini (extractor)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extrae info a JSON",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae info a JSON": {
+      "main": [
+        [
+          {
+            "node": "Guardar cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar cliente": {
+      "main": [
+        [
+          {
+            "node": "Toma datos Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Toma datos Supabase": {
+      "main": [
+        [
+          {
+            "node": "Junta propiedades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Junta propiedades": {
+      "main": [
+        [
+          {
+            "node": "IA elige matches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini (matches)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IA elige matches",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA elige matches": {
+      "main": [
+        [
+          {
+            "node": "Arma link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arma link": {
+      "main": [
+        [
+          {
+            "node": "¿Hay matches?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay matches?": {
+      "main": [
+        [
+          {
+            "node": "Mail al asesor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso sin matches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail al asesor": {
+      "main": [
+        [
+          {
+            "node": "Espera validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera validación": {
+      "main": [
+        [
+          {
+            "node": "¿Aprobada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Aprobada?": {
+      "main": [
+        [
+          {
+            "node": "Arma mail cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arma mail cliente": {
+      "main": [
+        [
+          {
+            "node": "Responde al cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

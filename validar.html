@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Validar propuesta · PropertyMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  /* =========================================================
+     CONFIGURACIÓN DE COLORES Y TIPOGRAFÍA
+     ========================================================= */
+  :root {
+    --ink: #1F2A44;        /* texto principal */
+    --muted: #5E6878;      /* texto secundario */
+    --paper: #FFFFFF;      /* fondo de cada propiedad */
+    --ground: #ECEFEA;     /* fondo de la página */
+    --line: #D3D8D0;       /* bordes */
+    --ok: #3F6B4F;         /* aprobar / seleccionada */
+    --ok-soft: #E3EDE5;
+    --no: #9A3B32;         /* rechazar / errores */
+    --no-soft: #F5E4E1;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { margin: 0; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 140px; }
+
+  /* ---------- Encabezado ---------- */
+  .brand { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--muted); margin: 0 0 28px; }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(28px, 6vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  .lead { color: var(--muted); margin: 0 0 20px; max-width: 60ch; }
+  .criteria { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; padding: 0; list-style: none; }
+  .criteria li {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 14px;
+  }
+  .extra { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+
+  /* ---------- Lista de propiedades ---------- */
+  .list { margin: 32px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+  .prop {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 16px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 6px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 20px 20px 14px;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .prop.is-on { border-left-color: var(--ok); }
+  .prop.is-off { background: #F7F8F6; }
+  .prop.is-off .prop-body { opacity: .55; }
+
+  .check {
+    appearance: none;
+    width: 28px; height: 28px;
+    margin: 2px 0 0 4px;
+    border: 2px solid var(--muted);
+    border-radius: 6px;
+    background: var(--paper);
+    cursor: pointer;
+    display: grid; place-content: center;
+  }
+  .check::after {
+    content: "";
+    width: 12px; height: 7px;
+    border-left: 3px solid #fff; border-bottom: 3px solid #fff;
+    transform: rotate(-45deg) translate(1px, -1px);
+    opacity: 0;
+  }
+  .check:checked { background: var(--ok); border-color: var(--ok); }
+  .check:checked::after { opacity: 1; }
+  .check:focus-visible, button:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 3px solid #7FA8E8; outline-offset: 2px;
+  }
+
+  .prop-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .prop h2 { font-family: var(--display); font-weight: 500; font-size: 20px; line-height: 1.25; margin: 0; }
+  .price { font-family: var(--display); font-weight: 700; font-size: 22px; white-space: nowrap; }
+  .where { color: var(--muted); margin: 4px 0 12px; font-size: 15px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+  .desc { margin: 12px 0 0; font-size: 15px; max-width: 64ch; }
+  .link { display: inline-block; margin-top: 12px; color: var(--ink); font-weight: 600; font-size: 14px; }
+
+  /* ---------- Comentario ---------- */
+  .note { margin: 32px 0 0; }
+  .note label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .note p { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+  textarea {
+    width: 100%; min-height: 96px; resize: vertical;
+    font: inherit; color: var(--ink);
+    background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 12px;
+  }
+
+  /* ---------- Barra de acciones fija ---------- */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .bar-inner { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .count { flex: 1 1 160px; font-size: 15px; }
+  .count strong { font-family: var(--display); font-size: 20px; }
+  button {
+    font: inherit; font-weight: 600; border-radius: 6px; padding: 12px 18px; cursor: pointer; border: 2px solid transparent;
+  }
+  .btn-no { background: var(--paper); color: var(--no); border-color: var(--no); }
+  .btn-ok { background: var(--ok); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ---------- Estados ---------- */
+  .state { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 28px; margin-top: 24px; }
+  .state h2 { font-family: var(--display); margin: 0 0 8px; font-size: 22px; }
+  .state p { margin: 0; color: var(--muted); }
+  .state.err { border-color: var(--no); background: var(--no-soft); }
+  .state.done { border-color: var(--ok); background: var(--ok-soft); }
+  .demo { font-size: 13px; background: #FFF4D6; border: 1px solid #E8D28A; border-radius: 6px; padding: 8px 12px; margin-bottom: 20px; }
+  [hidden] { display: none !important; }
+
+  @media (max-width: 520px) {
+    .wrap { padding-top: 24px; }
+    .prop { grid-template-columns: 36px 1fr; gap: 12px; padding: 16px 16px 16px 10px; }
+    .bar-inner button { flex: 1 1 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="brand">PropertyMatch · Validación del asesor</p>
+  <div id="demoNote" class="demo" hidden>Modo demo: estás viendo datos de ejemplo, no los de Supabase.</div>
+
+  <!-- Cargando -->
+  <section id="loading" class="state">
+    <h2>Cargando la propuesta…</h2>
+    <p>Buscando las propiedades sugeridas en la base de datos.</p>
+  </section>
+
+  <!-- Error -->
+  <section id="error" class="state err" hidden>
+    <h2 id="errorTitle">No se pudo cargar la propuesta</h2>
+    <p id="errorText"></p>
+  </section>
+
+  <!-- Propuesta -->
+  <section id="proposal" hidden>
+    <h1 id="title">Propiedades sugeridas</h1>
+    <p class="lead">Desmarcá las que no correspondan. Al aprobar, se le envía un mail al cliente solo con las propiedades marcadas.</p>
+    <ul id="criteria" class="criteria"></ul>
+    <p id="extra" class="extra" hidden></p>
+
+    <ul id="list" class="list"></ul>
+
+    <div class="note">
+      <label for="comment">Comentario para el cliente (opcional)</label>
+      <p>Se agrega al mail. Por ejemplo, disponibilidad para visitas.</p>
+      <textarea id="comment" maxlength="1000"></textarea>
+    </div>
+  </section>
+
+  <!-- Enviado -->
+  <section id="done" class="state done" hidden>
+    <h2 id="doneTitle">Propuesta aprobada</h2>
+    <p id="doneText"></p>
+  </section>
+</main>
+
+<footer id="bar" class="bar" hidden>
+  <div class="bar-inner">
+    <div class="count"><strong id="countNum">0</strong> de <span id="countTotal">0</span> seleccionadas</div>
+    <button id="btnReject" class="btn-no" type="button">Rechazar</button>
+    <button id="btnApprove" class="btn-ok" type="button">Aprobar y enviar</button>
+  </div>
+</footer>
+
+<script>
+/* =========================================================
+   1) CONFIGURACIÓN — completar con los datos de Supabase
+   Supabase > Project Settings > API
+   Usar SOLO la "anon public" key. Nunca la service_role.
+   ========================================================= */
+const SUPABASE_URL = "https://xnzfyklewwmibncryrei.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuemZ5a2xld3dtaWJuY3J5cmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNDA3NDYsImV4cCI6MjEwNDYxNjc0Nn0.2Mpg6TOCOPZ8IOgMahi9-IXSIfpDjqFf9d6nxKnaPDQ";
+
+/* =========================================================
+   2) PARÁMETROS QUE MANDA n8n EN EL LINK
+   validar.html?cliente=12&props=4,7,9&resume=URL_DEL_WAIT
+   Para probar con datos de ejemplo: validar.html?demo=1
+   ========================================================= */
+const params = new URLSearchParams(location.search);
+const clienteId = params.get("cliente");
+const propIds = (params.get("props") || "")
+  .split(",").map(s => s.trim()).filter(Boolean);
+const resumeUrl = params.get("resume");
+const isDemo = params.get("demo") === "1";
+
+const $ = id => document.getElementById(id);
+let propiedades = [];
+let enviado = false;
+
+/* ---------- Datos de ejemplo para modo demo ---------- */
+const DEMO_CLIENTE = {
+  id: 1, nombre: "Martín Rodríguez", tipo_operacion: "venta", tipo_propiedad: "casa",
+  ubicacion_buscada: "Carrasco", presupuesto_max: 500000, dormitorios: 3,
+  otros_requisitos: "Con jardín, idealmente con garage"
+};
+const DEMO_PROPS = [
+  { id: 4, titulo: "Casa con jardín a dos cuadras de la rambla", tipo_propiedad: "casa", tipo_operacion: "venta",
+    precio: 465000, moneda: "USD", ubicacion: "Carrasco Sur", dormitorios: 3, banos: 2, superficie: 210,
+    garage: true, mascotas: true, descripcion: "Planta baja con living comedor integrado al jardín y parrillero.", url: "https://example.com/4" },
+  { id: 7, titulo: "Casa reciclada en Carrasco Norte", tipo_propiedad: "casa", tipo_operacion: "venta",
+    precio: 398000, moneda: "USD", ubicacion: "Carrasco Norte", dormitorios: 3, banos: 3, superficie: 180,
+    garage: true, mascotas: null, descripcion: "Reciclaje completo en 2024, cocina nueva y suite en planta alta.", url: "https://example.com/7" },
+  { id: 9, titulo: "Casa de 4 dormitorios con piscina", tipo_propiedad: "casa", tipo_operacion: "venta",
+    precio: 495000, moneda: "USD", ubicacion: "Carrasco", dormitorios: 4, banos: 3, superficie: 260,
+    garage: false, mascotas: true, descripcion: "Fondo amplio con piscina. Necesita algunos arreglos menores.", url: "https://example.com/9" }
+];
+
+/* ---------- Utilidades ---------- */
+function money(valor, moneda) {
+  if (valor == null || valor === "") return "";
+  const n = Number(valor);
+  if (Number.isNaN(n)) return String(valor);
+  return `${moneda || "USD"} ${n.toLocaleString("es-UY")}`;
+}
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+function show(id) {
+  ["loading", "error", "proposal", "done"].forEach(s => $(s).hidden = s !== id);
+  $("bar").hidden = id !== "proposal";
+}
+function fail(title, text) {
+  $("errorTitle").textContent = title;
+  $("errorText").textContent = text;
+  show("error");
+}
+
+/* ---------- Carga de datos ---------- */
+async function cargar() {
+  if (isDemo) {
+    $("demoNote").hidden = false;
+    return { cliente: DEMO_CLIENTE, props: DEMO_PROPS };
+  }
+  if (propIds.length === 0) {
+    throw { title: "Faltan propiedades en el link", text: "El link no trae el parámetro props. Revisá el nodo de n8n que arma el link." };
+  }
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const { data: props, error: e1 } = await sb.from("propiedades").select("*").in("id", propIds);
+  if (e1) throw { title: "Supabase devolvió un error", text: e1.message };
+
+  let cliente = null;
+  if (clienteId) {
+    const { data, error: e2 } = await sb.from("clientes").select("*").eq("id", clienteId).maybeSingle();
+    if (e2) console.warn("No se pudo leer el cliente:", e2.message);
+    cliente = data;
+  }
+  return { cliente, props: props || [] };
+}
+
+/* ---------- Render ---------- */
+function renderCliente(c) {
+  if (!c) return;
+  if (c.nombre) $("title").textContent = `Propiedades sugeridas para ${c.nombre}`;
+  const items = [
+    c.tipo_operacion, c.tipo_propiedad, c.ubicacion_buscada,
+    c.dormitorios ? `${c.dormitorios} dormitorios` : null,
+    c.presupuesto_max ? `Hasta ${money(c.presupuesto_max, c.moneda)}` : null
+  ].filter(Boolean);
+  $("criteria").innerHTML = items.map(i => `<li>${esc(i)}</li>`).join("");
+  if (c.otros_requisitos) {
+    $("extra").textContent = `Además pidió: ${c.otros_requisitos}`;
+    $("extra").hidden = false;
+  }
+}
+
+function renderProps() {
+  $("list").innerHTML = propiedades.map(p => {
+    const facts = [
+      p.dormitorios != null ? `${p.dormitorios} dorm.` : null,
+      p.banos != null ? `${p.banos} baños` : null,
+      p.superficie != null ? `${p.superficie} m²` : null,
+      p.garage === true ? "Garage" : p.garage === false ? "Sin garage" : null,
+      p.mascotas === true ? "Acepta mascotas" : null
+    ].filter(Boolean);
+    return `
+      <li class="prop is-on" data-id="${esc(p.id)}">
+        <input type="checkbox" class="check" id="chk-${esc(p.id)}" checked
+               aria-label="Incluir ${esc(p.titulo)}">
+        <div class="prop-body">
+          <div class="prop-top">
+            <h2>${esc(p.titulo || "Propiedad " + p.id)}</h2>
+            <span class="price">${esc(money(p.precio, p.moneda))}</span>
+          </div>
+          <p class="where">${esc([[p.tipo_propiedad, p.tipo_operacion].filter(Boolean).join(" en "), p.ubicacion].filter(Boolean).join(", "))}</p>
+          <ul class="facts">${facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+          ${p.descripcion ? `<p class="desc">${esc(p.descripcion)}</p>` : ""}
+          ${p.url ? `<a class="link" href="${esc(p.url)}" target="_blank" rel="noopener">Ver publicación</a>` : ""}
+        </div>
+      </li>`;
+  }).join("");
+  $("countTotal").textContent = propiedades.length;
+  actualizarConteo();
+}
+
+function seleccionadas() {
+  return [...document.querySelectorAll(".check:checked")]
+    .map(c => c.closest(".prop").dataset.id);
+}
+function actualizarConteo() {
+  const n = seleccionadas().length;
+  $("countNum").textContent = n;
+  $("btnApprove").disabled = n === 0 || enviado;
+  document.querySelectorAll(".prop").forEach(li => {
+    const on = li.querySelector(".check").checked;
+    li.classList.toggle("is-on", on);
+    li.classList.toggle("is-off", !on);
+  });
+}
+
+/* Clic en toda la fila marca/desmarca (salvo el link) */
+$("list").addEventListener("click", e => {
+  if (e.target.closest("a") || e.target.classList.contains("check")) return;
+  const li = e.target.closest(".prop");
+  if (!li) return;
+  const chk = li.querySelector(".check");
+  chk.checked = !chk.checked;
+  actualizarConteo();
+});
+$("list").addEventListener("change", actualizarConteo);
+
+/* =========================================================
+   3) ENVÍO A n8n
+   Se manda como formulario (x-www-form-urlencoded) para que
+   el navegador no haga preflight de CORS. En n8n los datos
+   llegan en $json.body.accion, $json.body.propiedades_aprobadas, etc.
+   ========================================================= */
+async function enviar(accion) {
+  if (enviado) return;
+  const ids = seleccionadas();
+  if (accion === "rechazar" && !confirm("¿Rechazar la propuesta? No se le enviará nada al cliente.")) return;
+
+  enviado = true;
+  $("btnApprove").disabled = true;
+  $("btnReject").disabled = true;
+
+  const body = new URLSearchParams({
+    accion,
+    cliente_id: clienteId || "",
+    propiedades_aprobadas: accion === "aprobar" ? ids.join(",") : "",
+    comentario: $("comment").value.trim()
+  });
+
+  let confirmado = true;
+  if (isDemo) {
+    console.log("Modo demo. Se enviaría:", Object.fromEntries(body));
+  } else if (!resumeUrl) {
+    enviado = false;
+    $("btnApprove").disabled = false;
+    $("btnReject").disabled = false;
+    alert("El link no trae la URL de n8n (parámetro resume). No se puede enviar.");
+    return;
+  } else {
+    try {
+      const res = await fetch(resumeUrl, { method: "POST", body });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+    } catch (err) {
+      // Si es un bloqueo de CORS, el pedido igual llegó a n8n:
+      // solo no podemos leer la respuesta.
+      if (err instanceof TypeError && navigator.onLine) {
+        confirmado = false;
+      } else {
+        enviado = false;
+        $("btnApprove").disabled = false;
+        $("btnReject").disabled = false;
+        alert("No se pudo enviar: " + err.message + ". Probá de nuevo.");
+        return;
+      }
+    }
+  }
+
+  if (accion === "aprobar") {
+    $("doneTitle").textContent = "Propuesta aprobada";
+    $("doneText").textContent = `Se le enviará al cliente un mail con ${ids.length} ${ids.length === 1 ? "propiedad" : "propiedades"}.`
+      + (confirmado ? "" : " No se pudo confirmar la respuesta del servidor; revisá la ejecución en n8n.");
+  } else {
+    $("doneTitle").textContent = "Propuesta rechazada";
+    $("doneText").textContent = "No se le envió nada al cliente.";
+  }
+  show("done");
+}
+$("btnApprove").addEventListener("click", () => enviar("aprobar"));
+$("btnReject").addEventListener("click", () => enviar("rechazar"));
+
+/* ---------- Inicio ---------- */
+(async () => {
+  try {
+    const { cliente, props } = await cargar();
+    if (props.length === 0) {
+      fail("No hay propiedades para mostrar", "Los IDs del link no existen en la tabla propiedades.");
+      return;
+    }
+    // Mantener el orden en que la IA las mandó
+    propiedades = propIds.length
+      ? propIds.map(id => props.find(p => String(p.id) === id)).filter(Boolean)
+      : props;
+    renderCliente(cliente);
+    renderProps();
+    show("proposal");
+  } catch (e) {
+    fail(e.title || "No se pudo cargar la propuesta", e.text || e.message || String(e));
+  }
+})();
+</script>
+</body>
+</html>
